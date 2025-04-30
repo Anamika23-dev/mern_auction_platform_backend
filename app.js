@@ -1,10 +1,10 @@
-import {config} from "dotenv";
+import { config } from "dotenv";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import fileupload from "express-fileupload";
 import { connection } from "./database/connection.js";
-import { errorMiddleware} from "./middlewares/error.js";
+import { errorMiddleware } from "./middlewares/error.js";
 import userRouter from "./router/userRoutes.js";
 import auctionItemRouter from "./router/auctionItemRoutes.js";
 import bidRouter from "./router/bidRoutes.js";
@@ -12,60 +12,56 @@ import commissionRouter from "./router/commissionRouter.js";
 import superAdminRouter from "./router/superAdminRoutes.js";
 import { endedAuctionCron } from "./automation/endedAuctionCron.js";
 import { verifyCommissionCron } from "./automation/verifyCommissionCron.js";
+import fs from "fs";
+import path from "path";
 
-//import dotenv from "dotenv"; // If using ES modules
-
-//dotenv.config();
-const app = express();
+// Initialize dotenv
 config({
-    path:"./config/config.env",
+  path: "./config/config.env",
 });
-app.use(cors({
-    origin:[process.env.FRONTEND_URL],
-    methods:["POST","GET","PUT","DELETE"],
-    credentials:true,
 
-}));
+const app = express();
+
+app.use(
+  cors({
+    origin: [process.env.FRONTEND_URL],
+    methods: ["POST", "GET", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Ensure /temp directory exists
+const tempDir = path.join(process.cwd(), "temp");
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir);
+}
 
+// File upload configuration
 app.use(
-    fileupload
-    
-  ({
-        useTempFiles:true,
-        tempFileDir:"/temp/",
-    })
+  fileupload({
+    useTempFiles: true,
+    tempFileDir: tempDir, // Use tempDir here
+  })
 );
-app.use("/api/v1/user",userRouter);
+
+// Route handlers
+app.use("/api/v1/user", userRouter);
 app.use("/api/v1/auctionitem", auctionItemRouter);
 app.use("/api/v1/bid", bidRouter);
 app.use("/api/v1/commission", commissionRouter);
 app.use("/api/v1/superAdmin", superAdminRouter);
 
-
+// Cron jobs
 endedAuctionCron();
 verifyCommissionCron();
+
+// Database connection
 connection();
 
-const sendEmail = async () => {
-    const subject = 'Test Email';
-    const message = 'This is a test email message.';
-    const recipientEmail = 'recipient@example.com'; // Replace with a valid recipient email
-  
-    try {
-      console.log('Sending test email...');
-      await sendEmail({ email: recipientEmail, subject, message });
-      console.log('Test email sent successfully!');
-    } catch (error) {
-      console.error('Error sending test email:', error);
-    }
-  };
-  
-
-
+// Error handling middleware
 app.use(errorMiddleware);
-export default app;
 
+export default app;
